@@ -1,0 +1,13 @@
+{
+  "name": "s-v-guard",
+  "version": "1.0.0",
+  "description": "Bot anti-raid ultra puissant inspiré de Tokyo Revengers",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.15.3",
+    "dotenv": "^16.4.5"
+  }
+}
