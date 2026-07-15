@@ -111,80 +111,179 @@ module.exports = {
     }
 
     if (command === 'gbackup') {
-      const guild = message.guild;
-      const channels = [];
+      const subCommand = args[0]?.toLowerCase();
+      const backupName = args.slice(1).join(' ');
+      const globalData = client.db.getGlobalData();
+      if (!globalData.backups) globalData.backups = {};
 
-      const guildChannels = await guild.channels.fetch();
-      
-      guildChannels.forEach(c => {
-        if (!c) return;
-        channels.push({
-          id: c.id,
-          name: c.name,
-          type: c.type,
-          parentId: c.parentId,
-          position: c.position
+      if (subCommand === 'help' || !subCommand) {
+        const embed = new EmbedBuilder()
+          .setTitle('🛡️ S-V Guard — Système de Sauvegarde Global')
+          .setDescription(`Voici les commandes disponibles pour le système de sauvegarde cross-server :`)
+          .addFields(
+            { name: `\`${prefix}gbackup create <nom>\``, value: "Crée une sauvegarde complète du serveur actuel (Rôles, Salons, Permissions) stockée globalement." },
+            { name: `\`${prefix}gbackup load <nom>\``, value: "Charge une sauvegarde sur le serveur actuel. ⚠️ **Supprime tout le serveur actuel** avant de restaurer les rôles et les salons." },
+            { name: `\`${prefix}gbackup list\``, value: "Liste toutes les sauvegardes stockées." }
+          )
+          .setColor(config.theme || '#5865F2');
+        return message.reply({ embeds: [embed] });
+      }
+
+      if (subCommand === 'list') {
+        const backups = Object.keys(globalData.backups);
+        if (backups.length === 0) return message.reply("❌ Aucune sauvegarde globale disponible.");
+        const list = backups.map(name => `• **${name}** (Créée le ${globalData.backups[name].date})`).join('\n');
+        return message.reply(`**Sauvegardes globales existantes :**\n${list}`);
+      }
+
+      if (subCommand === 'create') {
+        if (!backupName) return message.reply(`❌ Veuillez spécifier un nom de sauvegarde : \`${prefix}gbackup create <nom>\``);
+        const guild = message.guild;
+        
+        const roles = [];
+        const guildRoles = await guild.roles.fetch();
+        guildRoles.forEach(r => {
+          // On ne sauvegarde pas le rôle @everyone (on le fera plus tard via ID) ni les rôles gérés/bots
+          if (r.managed || r.id === guild.id) return;
+          roles.push({
+            id: r.id,
+            name: r.name,
+            color: r.color,
+            hoist: r.hoist,
+            position: r.position,
+            permissions: r.permissions.bitfield.toString(),
+            mentionable: r.mentionable
+          });
         });
-      });
+        
+        // Trier les rôles par position descendante (du plus haut au plus bas)
+        roles.sort((a, b) => b.position - a.position);
 
-      if (!config.backups) config.backups = [];
-      
-      config.backups.push({
-        date: new Date().toLocaleString('fr-FR'),
-        channels: channels
-      });
+        const channels = [];
+        const guildChannels = await guild.channels.fetch();
+        guildChannels.forEach(c => {
+          if (!c) return;
+          const overwrites = [];
+          c.permissionOverwrites.cache.forEach(ow => {
+            // Uniquement les overwrites de rôles
+            if (ow.type === 0) { 
+              overwrites.push({
+                id: ow.id,
+                allow: ow.allow.bitfield.toString(),
+                deny: ow.deny.bitfield.toString()
+              });
+            }
+          });
 
-      client.db.updateGuildConfig(guild.id, { backups: config.backups });
-      return message.reply(`✅ Sauvegarde créée avec succès (Index: ${config.backups.length - 1}).`);
-    }
+          channels.push({
+            id: c.id,
+            name: c.name,
+            type: c.type,
+            parentId: c.parentId,
+            position: c.position,
+            overwrites: overwrites
+          });
+        });
 
-    if (command === 'gloadbackup') {
-      const index = parseInt(args[0]);
+        globalData.backups[backupName] = {
+          date: new Date().toLocaleString('fr-FR'),
+          guildId: guild.id,
+          roles: roles,
+          channels: channels
+        };
 
-      if (!config.backups || config.backups.length === 0) {
-        return message.reply("❌ Aucune sauvegarde disponible.");
+        client.db.updateGlobalData({ backups: globalData.backups });
+        return message.reply(`✅ Sauvegarde complète **${backupName}** créée avec succès !`);
       }
 
-      if (isNaN(index) || index < 0 || index >= config.backups.length) {
-        const list = config.backups.map((b, idx) => `[${idx}] - Sauvegarde du ${b.date} (${b.channels.length} salons)`).join('\n');
-        return message.reply(`Format correct: \`${prefix}gloadbackup <index>\`\nSauvegardes :\n${list}`);
-      }
+      if (subCommand === 'load') {
+        if (!backupName) return message.reply(`❌ Veuillez spécifier un nom de sauvegarde : \`${prefix}gbackup load <nom>\``);
+        const backup = globalData.backups[backupName];
+        if (!backup) return message.reply(`❌ La sauvegarde **${backupName}** n'existe pas.`);
 
-      const backup = config.backups[index];
-      await message.reply("🚨 Restauration en cours... Les salons actuels vont être supprimés.");
+        await message.reply("🚨 **Restauration en cours...** Le serveur actuel va être purgé, veuillez patienter.");
+        const guild = message.guild;
 
-      const guild = message.guild;
-      const channels = await guild.channels.fetch();
-
-      const currentChannelId = message.channel.id;
-      for (const [id, c] of channels) {
-        if (id !== currentChannelId) {
-          await c.delete().catch(() => {});
+        // 1. SUPPRESSION
+        const currentChannelId = message.channel.id;
+        const guildChannels = await guild.channels.fetch();
+        for (const [id, c] of guildChannels) {
+          if (id !== currentChannelId && c.deletable) {
+            await c.delete().catch(() => {});
+          }
         }
-      }
+        
+        const guildRoles = await guild.roles.fetch();
+        for (const [id, r] of guildRoles) {
+          if (r.id !== guild.id && r.editable && !r.managed && r.id !== guild.roles.botRoleFor(client.user)?.id) {
+            await r.delete().catch(() => {});
+          }
+        }
 
-      const categoryMap = new Map();
-      const backupCategories = backup.channels.filter(c => c.type === ChannelType.GuildCategory);
-      for (const cat of backupCategories) {
-        const newCat = await guild.channels.create({
-          name: cat.name,
-          type: ChannelType.GuildCategory
-        }).catch(() => null);
-        if (newCat) categoryMap.set(cat.id, newCat.id);
-      }
+        // 2. CREATION DES ROLES
+        const roleMapping = new Map();
+        // Le rôle @everyone est l'id de la guilde actuelle
+        roleMapping.set(backup.guildId, guild.id); 
 
-      const backupOther = backup.channels.filter(c => c.type !== ChannelType.GuildCategory);
-      for (const ch of backupOther) {
-        await guild.channels.create({
-          name: ch.name,
-          type: ch.type,
-          parent: categoryMap.get(ch.parentId) || null
-        }).catch(() => null);
-      }
+        // Rôles inversés (du plus bas au plus haut) pour la création
+        const reversedRoles = [...backup.roles].reverse();
+        for (const r of reversedRoles) {
+          try {
+            const newRole = await guild.roles.create({
+              name: r.name,
+              color: r.color,
+              hoist: r.hoist,
+              permissions: BigInt(r.permissions),
+              mentionable: r.mentionable,
+              reason: `Restauration de backup ${backupName}`
+            });
+            roleMapping.set(r.id, newRole.id);
+          } catch(err) {
+            console.error(`Impossible de créer le rôle ${r.name}`);
+          }
+        }
 
-      const oldChan = guild.channels.cache.get(currentChannelId);
-      if (oldChan) await oldChan.delete().catch(() => {});
-      return;
+        // 3. CREATION DES SALONS
+        const categoryMap = new Map();
+        const backupCategories = backup.channels.filter(c => c.type === ChannelType.GuildCategory);
+        const backupOther = backup.channels.filter(c => c.type !== ChannelType.GuildCategory);
+
+        const createChannelWithOverwrites = async (ch, parentId = null) => {
+          const newOverwrites = [];
+          for (const ow of ch.overwrites) {
+            const newRoleId = roleMapping.get(ow.id);
+            if (newRoleId) {
+              newOverwrites.push({
+                id: newRoleId,
+                allow: BigInt(ow.allow),
+                deny: BigInt(ow.deny)
+              });
+            }
+          }
+
+          return await guild.channels.create({
+            name: ch.name,
+            type: ch.type,
+            parent: parentId,
+            permissionOverwrites: newOverwrites
+          }).catch(() => null);
+        };
+
+        for (const cat of backupCategories) {
+          const newCat = await createChannelWithOverwrites(cat, null);
+          if (newCat) categoryMap.set(cat.id, newCat.id);
+        }
+
+        for (const ch of backupOther) {
+          const parentId = categoryMap.get(ch.parentId) || null;
+          await createChannelWithOverwrites(ch, parentId);
+        }
+
+        // Fin, supprimer le salon de log si possible
+        const oldChan = guild.channels.cache.get(currentChannelId);
+        if (oldChan) await oldChan.delete().catch(() => {});
+        return;
+      }
     }
   },
 };

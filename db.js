@@ -33,5 +33,19 @@ module.exports = {
     cachedData[guildId] = { ...this.getGuildConfig(guildId), ...newConfig };
     save();
     return cachedData[guildId];
+  },
+  getGlobalData() {
+    if (!cachedData['global']) {
+      cachedData['global'] = {
+        backups: {}
+      };
+      save();
+    }
+    return cachedData['global'];
+  },
+  updateGlobalData(newData) {
+    cachedData['global'] = { ...this.getGlobalData(), ...newData };
+    save();
+    return cachedData['global'];
   }
 };
