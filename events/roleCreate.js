@@ -11,6 +11,7 @@ module.exports = {
   async execute(role, client) {
     const guild = role.guild;
     const config = client.db.getGuildConfig(guild.id);
+    if (config.antiRaid === false) return;
 
     try {
       await new Promise(r => setTimeout(r, 500));

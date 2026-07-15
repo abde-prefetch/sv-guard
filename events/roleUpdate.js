@@ -11,6 +11,7 @@ module.exports = {
   async execute(oldRole, newRole, client) {
     const guild = newRole.guild;
     const config = client.db.getGuildConfig(guild.id);
+    if (config.antiRaid === false) return;
 
     // Vérifier si les permissions ont changé
     if (oldRole.permissions.bitfield === newRole.permissions.bitfield) return;

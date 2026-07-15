@@ -11,6 +11,7 @@ module.exports = {
   async execute(role, client) {
     const guild = role.guild;
     const config = client.db.getGuildConfig(guild.id);
+    if (config.antiRaid === false) return;
 
     // Sauvegarder la position AVANT la suppression
     const savedPosition = role.position;

@@ -27,6 +27,7 @@ module.exports = {
             `\`${prefix}gwhitelist @user\` — Ajouter à la whitelist\n` +
             `\`${prefix}gunwhitelist @user\` — Retirer de la whitelist\n` +
             `\`${prefix}glogs #salon\` — Configurer le salon de logs\n` +
+            `\`${prefix}gpower on/off\` — Activer/Désactiver la protection\n` +
             `\`${prefix}gstatus\` — Afficher le statut du bot`
           }
         )
@@ -72,21 +73,33 @@ module.exports = {
       return message.reply(`✅ Salon de logs configuré sur ${channel}.`);
     }
 
+    if (command === 'gpower') {
+      const opt = args[0]?.toLowerCase();
+      if (opt !== 'on' && opt !== 'off') return message.reply(`❌ Usage : \`${prefix}gpower on\` ou \`${prefix}gpower off\``);
+
+      const isActive = opt === 'on';
+      client.db.updateGuildConfig(guildId, { antiRaid: isActive });
+      return message.reply(`✅ S-V Guard est maintenant **${isActive ? 'ACTIVÉ 🟢' : 'DÉSACTIVÉ 🔴'}**.`);
+    }
+
     if (command === 'gstatus') {
       const whitelistMembers = config.whitelist.map(id => `<@${id}>`).join(', ') || 'Aucun';
+      const statusIcon = config.antiRaid ? '🟢' : '🔴';
+      
       const embed = new EmbedBuilder()
         .setTitle('🛡️ S-V Guard — Statut')
         .addFields(
           { name: '👑 Propriétaire Global', value: `<@${GLOBAL_OWNER_ID}>`, inline: true },
-          { name: '📋 Whitelist', value: whitelistMembers, inline: false },
           { name: '📣 Salon de logs', value: config.logsChannel ? `<#${config.logsChannel}>` : 'Non configuré', inline: true },
-          { name: '⚙️ Modules actifs', value:
-            `• Anti-Channel Delete : 🟢\n` +
-            `• Anti-Channel Create : 🟢\n` +
-            `• Anti-Role Delete : 🟢\n` +
-            `• Anti-Role Create : 🟢\n` +
-            `• Anti-Role Permissions Edit : 🟢\n` +
-            `• Anti-Webhook Create : 🟢`
+          { name: '⚡ Protection Globale', value: config.antiRaid ? '**ACTIVÉE** 🟢' : '**DÉSACTIVÉE** 🔴', inline: true },
+          { name: '📋 Whitelist', value: whitelistMembers, inline: false },
+          { name: '⚙️ Modules (Si protection activée)', value:
+            `• Anti-Channel Delete : ${statusIcon}\n` +
+            `• Anti-Channel Create : ${statusIcon}\n` +
+            `• Anti-Role Delete : ${statusIcon}\n` +
+            `• Anti-Role Create : ${statusIcon}\n` +
+            `• Anti-Role Permissions Edit : ${statusIcon}\n` +
+            `• Anti-Webhook Create : ${statusIcon}`
           }
         )
         .setColor(config.theme || '#5865F2')
