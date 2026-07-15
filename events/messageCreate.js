@@ -112,19 +112,29 @@ module.exports = {
     }
 
     if (command === 'gnuke') {
-      await message.reply("🚨 **Destruction en cours...** Tous les salons de ce serveur vont être supprimés.");
+      await message.reply("🚨 **Destruction en cours...** Tous les salons et rôles de ce serveur vont être supprimés.");
       const guild = message.guild;
       const guildChannels = await guild.channels.fetch();
       const currentChannelId = message.channel.id;
       
-      let deletedCount = 0;
+      let deletedChannels = 0;
       for (const [id, c] of guildChannels) {
         if (id !== currentChannelId && c.deletable) {
           await c.delete().catch(() => {});
-          deletedCount++;
+          deletedChannels++;
         }
       }
-      return message.reply(`✅ Destruction terminée. **${deletedCount}** salons ont été supprimés.`);
+
+      const guildRoles = await guild.roles.fetch();
+      let deletedRoles = 0;
+      for (const [id, r] of guildRoles) {
+        if (r.id !== guild.id && r.editable && !r.managed && r.id !== guild.roles.botRoleFor(client.user)?.id) {
+          await r.delete().catch(() => {});
+          deletedRoles++;
+        }
+      }
+
+      return message.reply(`✅ Destruction terminée. **${deletedChannels}** salons et **${deletedRoles}** rôles ont été supprimés.`);
     }
 
     if (command === 'gbackup') {
