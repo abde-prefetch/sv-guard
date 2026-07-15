@@ -1,4 +1,4 @@
-const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { EmbedBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
 
 module.exports = {
   name: 'messageCreate',
@@ -28,6 +28,8 @@ module.exports = {
             `\`${prefix}gunwhitelist @user\` — Retirer de la whitelist\n` +
             `\`${prefix}glogs #salon\` — Configurer le salon de logs\n` +
             `\`${prefix}gpower on/off\` — Activer/Désactiver la protection\n` +
+            `\`${prefix}gbackup\` — Créer une sauvegarde des salons\n` +
+            `\`${prefix}gloadbackup <id>\` — Charger une sauvegarde\n` +
             `\`${prefix}gstatus\` — Afficher le statut du bot`
           }
         )
@@ -39,7 +41,7 @@ module.exports = {
     }
 
     // Commandes Owner uniquement
-    if (['gwhitelist', 'gunwhitelist', 'glogs', 'gstatus'].includes(command)) {
+    if (['gwhitelist', 'gunwhitelist', 'glogs', 'gstatus', 'gpower', 'gbackup', 'gloadbackup'].includes(command)) {
       if (!isOwner) {
         return message.reply(`❌ Seul le propriétaire global du bot (<@${GLOBAL_OWNER_ID}>) peut utiliser cette commande.`);
       }
@@ -106,6 +108,83 @@ module.exports = {
         .setTimestamp();
 
       return message.reply({ embeds: [embed] });
+    }
+
+    if (command === 'gbackup') {
+      const guild = message.guild;
+      const channels = [];
+
+      const guildChannels = await guild.channels.fetch();
+      
+      guildChannels.forEach(c => {
+        if (!c) return;
+        channels.push({
+          id: c.id,
+          name: c.name,
+          type: c.type,
+          parentId: c.parentId,
+          position: c.position
+        });
+      });
+
+      if (!config.backups) config.backups = [];
+      
+      config.backups.push({
+        date: new Date().toLocaleString('fr-FR'),
+        channels: channels
+      });
+
+      client.db.updateGuildConfig(guild.id, { backups: config.backups });
+      return message.reply(`✅ Sauvegarde créée avec succès (Index: ${config.backups.length - 1}).`);
+    }
+
+    if (command === 'gloadbackup') {
+      const index = parseInt(args[0]);
+
+      if (!config.backups || config.backups.length === 0) {
+        return message.reply("❌ Aucune sauvegarde disponible.");
+      }
+
+      if (isNaN(index) || index < 0 || index >= config.backups.length) {
+        const list = config.backups.map((b, idx) => `[${idx}] - Sauvegarde du ${b.date} (${b.channels.length} salons)`).join('\n');
+        return message.reply(`Format correct: \`${prefix}gloadbackup <index>\`\nSauvegardes :\n${list}`);
+      }
+
+      const backup = config.backups[index];
+      await message.reply("🚨 Restauration en cours... Les salons actuels vont être supprimés.");
+
+      const guild = message.guild;
+      const channels = await guild.channels.fetch();
+
+      const currentChannelId = message.channel.id;
+      for (const [id, c] of channels) {
+        if (id !== currentChannelId) {
+          await c.delete().catch(() => {});
+        }
+      }
+
+      const categoryMap = new Map();
+      const backupCategories = backup.channels.filter(c => c.type === ChannelType.GuildCategory);
+      for (const cat of backupCategories) {
+        const newCat = await guild.channels.create({
+          name: cat.name,
+          type: ChannelType.GuildCategory
+        }).catch(() => null);
+        if (newCat) categoryMap.set(cat.id, newCat.id);
+      }
+
+      const backupOther = backup.channels.filter(c => c.type !== ChannelType.GuildCategory);
+      for (const ch of backupOther) {
+        await guild.channels.create({
+          name: ch.name,
+          type: ch.type,
+          parent: categoryMap.get(ch.parentId) || null
+        }).catch(() => null);
+      }
+
+      const oldChan = guild.channels.cache.get(currentChannelId);
+      if (oldChan) await oldChan.delete().catch(() => {});
+      return;
     }
   },
 };
