@@ -17,25 +17,42 @@ module.exports = {
     const GLOBAL_OWNER_ID = '578019414830743586';
     const isOwner = message.author.id === GLOBAL_OWNER_ID;
 
-    // &ghelp : Accessible à tous
+    // &help : Accessible à tous
     if (command === 'help') {
       const embed = new EmbedBuilder()
-        .setTitle('🛡️ S-V Guard — Aide')
-        .setDescription(`Préfixe actuel : \`${prefix}\`\n\n**Seul le propriétaire global du bot (<@${GLOBAL_OWNER_ID}>) peut configurer le bot.**`)
+        .setTitle('🛡️ Protect — Menu d\'aide')
+        .setDescription(`Préfixe : \`${prefix}\`\nPropriétaire absolu : <@${GLOBAL_OWNER_ID}>`)
         .addFields(
-          { name: '━━ Configuration ━━', value:
-            `\`${prefix}whitelist @user\` — Ajouter à la whitelist\n` +
-            `\`${prefix}unwhitelist @user\` — Retirer de la whitelist\n` +
-            `\`${prefix}logs #salon\` — Configurer le salon de logs\n` +
+          { name: '🛡️ Protection', value:
             `\`${prefix}power on/off\` — Activer/Désactiver la protection\n` +
-            `\`${prefix}backup\` — Créer une sauvegarde des salons\n` +
-            `\`${prefix}loadbackup <id>\` — Charger une sauvegarde\n` +
-            `\`${prefix}nuke\` — Supprimer TOUS les salons (sauf l'actuel)\n` +
-            `\`${prefix}status\` — Afficher le statut du bot`
+            `\`${prefix}status\` — Afficher le statut & modules actifs`,
+            inline: false
+          },
+          { name: '💾 Sauvegarde', value:
+            `\`${prefix}backup create <nom>\` — Créer une sauvegarde complète\n` +
+            `\`${prefix}backup load <nom>\` — Charger une sauvegarde\n` +
+            `\`${prefix}backup list\` — Lister les sauvegardes`,
+            inline: false
+          },
+          { name: '👑 Permissions (Owner)', value:
+            `\`${prefix}whitelist @user\` — Ajouter à la whitelist locale\n` +
+            `\`${prefix}unwhitelist @user\` — Retirer de la whitelist\n` +
+            `\`${prefix}listowner\` — Voir le propriétaire absolu\n` +
+            `\`${prefix}listwhitelist\` — Voir la whitelist du serveur`,
+            inline: false
+          },
+          { name: '⚙️ Configuration', value:
+            `\`${prefix}logs #salon\` — Configurer le salon de logs`,
+            inline: false
+          },
+          { name: '⚠️ Actions dangereuses (Owner)', value:
+            `\`${prefix}nuke\` — Supprimer tous les salons & rôles\n` +
+            `\`${prefix}restart\` — Redémarrer le bot`,
+            inline: false
           }
         )
         .setColor(config.theme || '#5865F2')
-        .setFooter({ text: 'S-V Guard • Protection avancée' })
+        .setFooter({ text: 'Protect • Protection avancée' })
         .setTimestamp();
 
       return message.reply({ embeds: [embed] });
