@@ -18,20 +18,20 @@ module.exports = {
     const isOwner = message.author.id === GLOBAL_OWNER_ID;
 
     // &ghelp : Accessible à tous
-    if (command === 'ghelp') {
+    if (command === 'help') {
       const embed = new EmbedBuilder()
         .setTitle('🛡️ S-V Guard — Aide')
         .setDescription(`Préfixe actuel : \`${prefix}\`\n\n**Seul le propriétaire global du bot (<@${GLOBAL_OWNER_ID}>) peut configurer le bot.**`)
         .addFields(
           { name: '━━ Configuration ━━', value:
-            `\`${prefix}gwhitelist @user\` — Ajouter à la whitelist\n` +
-            `\`${prefix}gunwhitelist @user\` — Retirer de la whitelist\n` +
-            `\`${prefix}glogs #salon\` — Configurer le salon de logs\n` +
-            `\`${prefix}gpower on/off\` — Activer/Désactiver la protection\n` +
-            `\`${prefix}gbackup\` — Créer une sauvegarde des salons\n` +
-            `\`${prefix}gloadbackup <id>\` — Charger une sauvegarde\n` +
-            `\`${prefix}gnuke\` — Supprimer TOUS les salons (sauf l'actuel)\n` +
-            `\`${prefix}gstatus\` — Afficher le statut du bot`
+            `\`${prefix}whitelist @user\` — Ajouter à la whitelist\n` +
+            `\`${prefix}unwhitelist @user\` — Retirer de la whitelist\n` +
+            `\`${prefix}logs #salon\` — Configurer le salon de logs\n` +
+            `\`${prefix}power on/off\` — Activer/Désactiver la protection\n` +
+            `\`${prefix}backup\` — Créer une sauvegarde des salons\n` +
+            `\`${prefix}loadbackup <id>\` — Charger une sauvegarde\n` +
+            `\`${prefix}nuke\` — Supprimer TOUS les salons (sauf l'actuel)\n` +
+            `\`${prefix}status\` — Afficher le statut du bot`
           }
         )
         .setColor(config.theme || '#5865F2')
@@ -42,15 +42,15 @@ module.exports = {
     }
 
     // Commandes Owner uniquement
-    if (['gwhitelist', 'gunwhitelist', 'glogs', 'gstatus', 'gpower', 'gbackup', 'gloadbackup', 'gnuke'].includes(command)) {
+    if (['whitelist', 'unwhitelist', 'logs', 'status', 'power', 'backup', 'loadbackup', 'nuke'].includes(command)) {
       if (!isOwner) {
         return message.reply(`❌ Seul le propriétaire global du bot (<@${GLOBAL_OWNER_ID}>) peut utiliser cette commande.`);
       }
     }
 
-    if (command === 'gwhitelist') {
+    if (command === 'whitelist') {
       const target = message.mentions.users.first() || await client.users.fetch(args[0]).catch(() => null);
-      if (!target) return message.reply(`❌ Usage : \`${prefix}gwhitelist @user\``);
+      if (!target) return message.reply(`❌ Usage : \`${prefix}whitelist @user\``);
       if (config.whitelist.includes(target.id)) return message.reply("❌ Cet utilisateur est déjà dans la whitelist.");
 
       config.whitelist.push(target.id);
@@ -58,9 +58,9 @@ module.exports = {
       return message.reply(`✅ **${target.username}** a été ajouté à la whitelist S-V Guard.`);
     }
 
-    if (command === 'gunwhitelist') {
+    if (command === 'unwhitelist') {
       const target = message.mentions.users.first() || await client.users.fetch(args[0]).catch(() => null);
-      if (!target) return message.reply(`❌ Usage : \`${prefix}gunwhitelist @user\``);
+      if (!target) return message.reply(`❌ Usage : \`${prefix}unwhitelist @user\``);
       if (!config.whitelist.includes(target.id)) return message.reply("❌ Cet utilisateur n'est pas dans la whitelist.");
 
       config.whitelist = config.whitelist.filter(id => id !== target.id);
@@ -68,24 +68,24 @@ module.exports = {
       return message.reply(`✅ **${target.username}** a été retiré de la whitelist S-V Guard.`);
     }
 
-    if (command === 'glogs') {
+    if (command === 'logs') {
       const channel = message.mentions.channels.first();
-      if (!channel) return message.reply(`❌ Usage : \`${prefix}glogs #salon\``);
+      if (!channel) return message.reply(`❌ Usage : \`${prefix}logs #salon\``);
 
       client.db.updateGuildConfig(guildId, { logsChannel: channel.id });
       return message.reply(`✅ Salon de logs configuré sur ${channel}.`);
     }
 
-    if (command === 'gpower') {
+    if (command === 'power') {
       const opt = args[0]?.toLowerCase();
-      if (opt !== 'on' && opt !== 'off') return message.reply(`❌ Usage : \`${prefix}gpower on\` ou \`${prefix}gpower off\``);
+      if (opt !== 'on' && opt !== 'off') return message.reply(`❌ Usage : \`${prefix}power on\` ou \`${prefix}power off\``);
 
       const isActive = opt === 'on';
       client.db.updateGuildConfig(guildId, { antiRaid: isActive });
       return message.reply(`✅ S-V Guard est maintenant **${isActive ? 'ACTIVÉ 🟢' : 'DÉSACTIVÉ 🔴'}**.`);
     }
 
-    if (command === 'gstatus') {
+    if (command === 'status') {
       const whitelistMembers = config.whitelist.map(id => `<@${id}>`).join(', ') || 'Aucun';
       const statusIcon = config.antiRaid ? '🟢' : '🔴';
       
@@ -111,7 +111,7 @@ module.exports = {
       return message.reply({ embeds: [embed] });
     }
 
-    if (command === 'gnuke') {
+    if (command === 'nuke') {
       await message.reply("🚨 **Destruction en cours...** Tous les salons et rôles de ce serveur vont être supprimés.");
       const guild = message.guild;
       const guildChannels = await guild.channels.fetch();
@@ -137,7 +137,7 @@ module.exports = {
       return message.reply(`✅ Destruction terminée. **${deletedChannels}** salons et **${deletedRoles}** rôles ont été supprimés.`);
     }
 
-    if (command === 'gbackup') {
+    if (command === 'backup') {
       const subCommand = args[0]?.toLowerCase();
       const backupName = args.slice(1).join(' ');
       const globalData = client.db.getGlobalData();
@@ -148,9 +148,9 @@ module.exports = {
           .setTitle('🛡️ S-V Guard — Système de Sauvegarde Global')
           .setDescription(`Voici les commandes disponibles pour le système de sauvegarde cross-server :`)
           .addFields(
-            { name: `\`${prefix}gbackup create <nom>\``, value: "Crée une sauvegarde complète du serveur actuel (Rôles, Salons, Permissions) stockée globalement." },
-            { name: `\`${prefix}gbackup load <nom>\``, value: "Charge une sauvegarde sur le serveur actuel. ⚠️ **Supprime tout le serveur actuel** avant de restaurer les rôles et les salons." },
-            { name: `\`${prefix}gbackup list\``, value: "Liste toutes les sauvegardes stockées." }
+            { name: `\`${prefix}backup create <nom>\``, value: "Crée une sauvegarde complète du serveur actuel (Rôles, Salons, Permissions) stockée globalement." },
+            { name: `\`${prefix}backup load <nom>\``, value: "Charge une sauvegarde sur le serveur actuel. ⚠️ **Supprime tout le serveur actuel** avant de restaurer les rôles et les salons." },
+            { name: `\`${prefix}backup list\``, value: "Liste toutes les sauvegardes stockées." }
           )
           .setColor(config.theme || '#5865F2');
         return message.reply({ embeds: [embed] });
@@ -164,7 +164,7 @@ module.exports = {
       }
 
       if (subCommand === 'create') {
-        if (!backupName) return message.reply(`❌ Veuillez spécifier un nom de sauvegarde : \`${prefix}gbackup create <nom>\``);
+        if (!backupName) return message.reply(`❌ Veuillez spécifier un nom de sauvegarde : \`${prefix}backup create <nom>\``);
         const guild = message.guild;
         
         const roles = [];
@@ -224,7 +224,7 @@ module.exports = {
       }
 
       if (subCommand === 'load') {
-        if (!backupName) return message.reply(`❌ Veuillez spécifier un nom de sauvegarde : \`${prefix}gbackup load <nom>\``);
+        if (!backupName) return message.reply(`❌ Veuillez spécifier un nom de sauvegarde : \`${prefix}backup load <nom>\``);
         const backup = globalData.backups[backupName];
         if (!backup) return message.reply(`❌ La sauvegarde **${backupName}** n'existe pas.`);
 
