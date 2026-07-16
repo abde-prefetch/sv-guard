@@ -42,10 +42,15 @@ module.exports = {
     }
 
     // Commandes Owner uniquement
-    if (['whitelist', 'unwhitelist', 'logs', 'status', 'power', 'backup', 'loadbackup', 'nuke'].includes(command)) {
+    if (['whitelist', 'unwhitelist', 'logs', 'status', 'power', 'backup', 'loadbackup', 'nuke', 'restart'].includes(command)) {
       if (!isOwner) {
         return message.reply(`❌ Seul le propriétaire global du bot (<@${GLOBAL_OWNER_ID}>) peut utiliser cette commande.`);
       }
+    }
+
+    if (command === 'restart') {
+      await message.reply("🔄 Redémarrage du bot **Protect** en cours...");
+      process.exit(0);
     }
 
     if (command === 'whitelist') {
