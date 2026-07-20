@@ -1,5 +1,6 @@
 const { AuditLogEvent, EmbedBuilder } = require('discord.js');
 const { checkAndRegisterAction, clearHistory } = require('../utils/rateLimiter');
+const { isOwner: checkOwner } = require('../config');
 
 async function sendLog(guild, config, embed) {
   if (!config.logsChannel) return;
@@ -28,8 +29,7 @@ module.exports = {
       const { executor, reason } = entry;
       if (executor.id === client.user.id) return; // Ignorer les bans faits par le bot lui-même
 
-      const GLOBAL_OWNER_ID = '578019414830743586';
-      const isWhitelisted = executor.id === GLOBAL_OWNER_ID || (config.whitelist && config.whitelist.includes(executor.id));
+      const isWhitelisted = checkOwner(executor.id) || (config.whitelist && config.whitelist.includes(executor.id));
 
       // 1. Envoyer le log du ban
       const logEmbed = new EmbedBuilder()

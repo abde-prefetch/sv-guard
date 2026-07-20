@@ -1,4 +1,5 @@
 const { AuditLogEvent, EmbedBuilder } = require('discord.js');
+const { isOwner: checkOwner } = require('../config');
 
 async function sendLog(guild, config, embed) {
   if (!config.logsChannel) return;
@@ -27,8 +28,7 @@ module.exports = {
       const { executor } = entry;
       if (executor.id === client.user.id) return;
 
-      const GLOBAL_OWNER_ID = '578019414830743586';
-      const isWhitelisted = executor.id === GLOBAL_OWNER_ID || config.whitelist.includes(executor.id);
+      const isWhitelisted = checkOwner(executor.id) || config.whitelist.includes(executor.id);
       if (isWhitelisted) return;
 
       // 1. Bannir

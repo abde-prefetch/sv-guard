@@ -1,4 +1,5 @@
 const { EmbedBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
+const { isOwner: checkOwner, OWNER_IDS } = require('../config');
 
 module.exports = {
   name: 'messageCreate',
@@ -14,14 +15,14 @@ module.exports = {
     const args = message.content.slice(prefix.length).trim().split(/ +/);
     const command = args.shift().toLowerCase();
 
-    const GLOBAL_OWNER_ID = '578019414830743586';
-    const isOwner = message.author.id === GLOBAL_OWNER_ID;
+    const GLOBAL_OWNER_ID = OWNER_IDS[0];
+    const isOwner = checkOwner(message.author.id);
 
     // &help : Accessible à tous
     if (command === 'help') {
       const embed = new EmbedBuilder()
         .setTitle('🛡️ Protect — Menu d\'aide')
-        .setDescription(`Préfixe : \`${prefix}\`\nPropriétaire absolu : <@${GLOBAL_OWNER_ID}>`)
+        .setDescription(`Préfixe : \`${prefix}\`\nPropriétaires absolus : ${OWNER_IDS.map(id => `<@${id}>`).join(', ')}`)
         .addFields(
           { name: '🛡️ Protection', value:
             `\`${prefix}power on/off\` — Activer/Désactiver la protection\n` +
