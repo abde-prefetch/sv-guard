@@ -39,4 +39,8 @@ http.createServer((req, res) => {
   console.log(`📡 S-V Guard Web Server actif sur le port ${process.env.PORT || 3000}`);
 });
 
+// Écouteurs de debug pour comprendre le blocage Discord
+client.on('debug', m => console.log(`[Discord Debug] ${m}`));
+client.on('error', e => console.error(`[Discord Error]`, e));
+
 client.login(process.env.TOKEN);
