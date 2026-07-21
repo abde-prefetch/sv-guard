@@ -1,6 +1,11 @@
 const { EmbedBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
 const { isOwner: checkOwner, OWNER_IDS } = require('../config');
 
+const spamMap = new Map();
+const SPAM_LIMIT = 5;
+const SPAM_TIME = 3000; // 3 secondes
+const TIMEOUT_DURATION = 10 * 60 * 1000; // 10 minutes
+
 module.exports = {
   name: 'messageCreate',
   async execute(message, client) {
@@ -11,6 +16,82 @@ module.exports = {
     const guildId = message.guild.id;
     const config = client.db.getGuildConfig(guildId);
     const prefix = config.prefix || '&';
+
+    const isWhitelisted = checkOwner(message.author.id) || 
+                          (config.whitelist && config.whitelist.includes(message.author.id)) ||
+                          (message.member && message.member.permissions.has(PermissionFlagsBits.Administrator));
+
+    // Si la protection globale est activée et que l'utilisateur n'est pas whitelisté
+    if (config.antiRaid !== false && !isWhitelisted) {
+      // 1. Anti-Everyone / Anti-Here Ping -> BAN DIRECT
+      if (message.mentions.everyone) {
+        if (message.member && message.member.bannable) {
+          await message.member.ban({ reason: "S-V Guard: Mention de masse (everyone/here) non autorisée" }).catch(() => null);
+          await message.delete().catch(() => {});
+
+          const logEmbed = new EmbedBuilder()
+            .setTitle('🚨 Alerte Sécurité — Mention de Masse')
+            .setDescription(`Un utilisateur non-whitelisté a mentionné @everyone ou @here.`)
+            .addFields(
+              { name: '👤 Utilisateur', value: `${message.author} (${message.author.id})`, inline: true },
+              { name: '🛡️ Action prise', value: 'Banni définitivement.', inline: true }
+            )
+            .setColor('#ED4245')
+            .setTimestamp();
+
+          if (config.logsChannel) {
+            const logsChan = message.guild.channels.cache.get(config.logsChannel);
+            if (logsChan) await logsChan.send({ embeds: [logEmbed] }).catch(() => {});
+          }
+          return;
+        }
+      }
+
+      // 2. Anti-Spam -> Timeout 10 minutes
+      const userId = message.author.id;
+      if (spamMap.has(userId)) {
+        const userData = spamMap.get(userId);
+        userData.msgCount += 1;
+
+        if (userData.msgCount >= SPAM_LIMIT) {
+          try {
+            await message.delete().catch(() => {});
+            if (message.member && message.member.moderatable) {
+              await message.member.timeout(TIMEOUT_DURATION, "S-V Guard: Spam de messages");
+              await message.channel.send(`🚨 ${message.author} a été rendu muet pendant 10 minutes pour spam.`);
+
+              const logEmbed = new EmbedBuilder()
+                .setTitle('🚨 Alerte Sécurité — Spam de Messages')
+                .setDescription(`Un utilisateur a spammé dans le chat.`)
+                .addFields(
+                  { name: '👤 Utilisateur', value: `${message.author} (${message.author.id})`, inline: true },
+                  { name: '🛡️ Action prise', value: 'Rendu muet pour 10 minutes (Timeout).', inline: true }
+                )
+                .setColor('#ED4245')
+                .setTimestamp();
+
+              if (config.logsChannel) {
+                const logsChan = message.guild.channels.cache.get(config.logsChannel);
+                if (logsChan) await logsChan.send({ embeds: [logEmbed] }).catch(() => {});
+              }
+            }
+            clearTimeout(userData.timer);
+            spamMap.delete(userId);
+            return;
+          } catch (err) {
+            console.error("Impossible d'appliquer le timeout pour spam :", err);
+          }
+        } else {
+          spamMap.set(userId, userData);
+        }
+      } else {
+        const timer = setTimeout(() => {
+          spamMap.delete(userId);
+        }, SPAM_TIME);
+
+        spamMap.set(userId, { msgCount: 1, timer });
+      }
+    }
 
     if (!message.content.startsWith(prefix)) return;
 
