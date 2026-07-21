@@ -43,19 +43,7 @@ http.createServer((req, res) => {
   console.log(`📡 S-V Guard Web Server actif sur le port ${process.env.PORT || 3000}`);
 });
 
-// Écouteurs de debug pour comprendre le blocage Discord
-client.on('debug', m => console.log(`[Discord Debug] ${m}`));
+// Écouteur d'erreur Discord
 client.on('error', e => console.error(`[Discord Error]`, e));
-
-console.log("[Diagnostic] Test de connexion HTTP vers l'API de Discord...");
-fetch('https://discord.com/api/v10/gateway/bot', {
-  headers: { Authorization: `Bot ${process.env.TOKEN}` }
-})
-  .then(res => {
-    console.log(`[Diagnostic] Statut HTTP Discord: ${res.status} (${res.statusText})`);
-    return res.json();
-  })
-  .then(data => console.log(`[Diagnostic] Réponse API Discord reçue avec succès.`))
-  .catch(err => console.error(`[Diagnostic] Échec de la connexion HTTP vers Discord:`, err));
 
 client.login(process.env.TOKEN);
